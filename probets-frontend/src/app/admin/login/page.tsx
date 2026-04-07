@@ -4,10 +4,13 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { setToken } from '@/lib/auth';
+import { fetchCurrentUser } from '@/lib/current-user';
+import { useAppStore } from '@/lib/store';
 
 export default function AdminLoginPage() {
   const router = useRouter();
   const [nextPath, setNextPath] = useState('/admin/dashboard');
+  const setAuthUser = useAppStore((s) => s.setAuthUser);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -29,6 +32,16 @@ export default function AdminLoginPage() {
       const token = data?.data?.token || data?.token;
       if (!token) throw new Error('Token missing from response');
       setToken(token);
+
+      const me = await fetchCurrentUser();
+      if (me) {
+        setAuthUser({
+          username: me.username,
+          name: me.name,
+          role: me.role,
+        });
+      }
+
       router.replace(nextPath);
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || 'Login failed';

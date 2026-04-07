@@ -13,11 +13,15 @@ import { money, num, time } from '@/lib/format';
 import type { DashboardPayload } from '@/types/dashboard';
 import { clearToken } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
+import { fetchCurrentUser } from '@/lib/current-user';
+import { useAppStore } from '@/lib/store';
 
 const pieColors = ['#FFD700', '#33d17a', '#3b82f6', '#f97316', '#a855f7'];
 
 export default function AdminDashboardPage() {
   const router = useRouter();
+  const authUser = useAppStore((s) => s.authUser);
+  const setAuthUser = useAppStore((s) => s.setAuthUser);
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -32,6 +36,19 @@ export default function AdminDashboardPage() {
   };
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    if (authUser) return;
+    fetchCurrentUser().then((me) => {
+      if (me) {
+        setAuthUser({
+          username: me.username,
+          name: me.name,
+          role: me.role,
+        });
+      }
+    });
+  }, [authUser, setAuthUser]);
 
   useEffect(() => {
     if (!autoRefresh) return;
@@ -71,6 +88,15 @@ export default function AdminDashboardPage() {
               <p className="text-xs text-zinc-400">实时监控 / 风险控制 / 代理信用管理</p>
             </div>
             <div className="flex items-center gap-2">
+              <div className="hidden md:flex items-center gap-3 rounded-xl border border-white/10 bg-black/30 px-3 py-2">
+                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#FFD700] to-[#8a6a00] text-black font-bold grid place-items-center">
+                  {(authUser?.name?.[0] || authUser?.username?.[0] || 'A').toUpperCase()}
+                </div>
+                <div className="leading-tight">
+                  <div className="text-sm">{authUser?.name || authUser?.username || 'Admin'}</div>
+                  <div className="text-[11px] uppercase text-zinc-400">{String(authUser?.role || 'admin')}</div>
+                </div>
+              </div>
               <select
                 value={site}
                 onChange={(e) => setSite(e.target.value)}

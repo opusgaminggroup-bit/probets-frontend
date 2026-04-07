@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const TOKEN_KEY = 'probets_token';
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
   if (!pathname.startsWith('/admin')) {
