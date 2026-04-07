@@ -29,7 +29,7 @@ export default function PlayersAnalysisPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [total, setTotal] = useState(0);
-  const [sortBy, setSortBy] = useState<'totalBet' | 'netGgr' | 'creditBalance'>('totalBet');
+  const [sortBy, setSortBy] = useState<'totalBet' | 'netContribution' | 'creditBalance' | 'lastActive'>('totalBet');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   const [creditDist, setCreditDist] = useState<CreditDistribution | null>(null);
@@ -46,12 +46,19 @@ export default function PlayersAnalysisPage() {
   const load = async () => {
     setLoading(true);
     const [ranking, dist, beh] = await Promise.all([
-      getPlayersRanking({ days: Number(range), page, limit, q, sort: sortBy, order: sortDir, scopeUserId: isSuperAgent ? (authUser as any)?.id : undefined }),
+      getPlayersRanking({
+        days: Number(range),
+        page,
+        limit,
+        search: q || undefined,
+        sort: sortBy,
+        order: sortDir,
+        agentId: isSuperAgent ? String((authUser as any)?.id || '') : undefined,
+      }),
       getPlayersCreditDistribution(Number(range)),
       getPlayersBettingBehavior(Number(range)),
     ]);
-    let items = [...ranking.items];
-    items.sort((a: any, b: any) => (sortDir === 'desc' ? b[sortBy] - a[sortBy] : a[sortBy] - b[sortBy]));
+    const items = [...ranking.items];
     setRows(items);
     setTotal(Number(ranking.meta.total || items.length));
     setCreditDist(dist);
@@ -59,7 +66,7 @@ export default function PlayersAnalysisPage() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [range, page, limit, sortBy, sortDir]);
+  useEffect(() => { load(); }, [range, page, limit, sortBy, sortDir, authUser?.id, isSuperAgent]);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / limit)), [total, limit]);
 
@@ -70,7 +77,7 @@ export default function PlayersAnalysisPage() {
   };
 
   const exportCsv = () => {
-    const header = ['rank', 'username', 'agent', 'superAgent', 'totalBet', 'totalPnl', 'netGgr', 'creditBalance', 'lastActiveAt'];
+    const header = ['rank', 'username', 'agent', 'superAgent', 'totalBet', 'totalPnl', 'netContribution', 'creditBalance', 'lastActive'];
     const lines = rows.map((r, i) => [
       String((page - 1) * limit + i + 1),
       r.username,
@@ -78,9 +85,9 @@ export default function PlayersAnalysisPage() {
       r.superAgentName,
       r.totalBet,
       r.totalPnl,
-      r.netGgr,
+      r.netContribution,
       r.creditBalance,
-      r.lastActiveAt,
+      r.lastActive,
     ].join(','));
     const csv = [header.join(','), ...lines].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -106,7 +113,7 @@ export default function PlayersAnalysisPage() {
           </select>
           <div className="relative">
             <Search size={14} className="absolute left-2.5 top-2.5 text-zinc-500" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜索会员用户名" className="rounded-lg bg-black/40 border border-white/15 pl-8 pr-3 py-2 text-sm" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={async (e) => { if (e.key === 'Enter') { setPage(1); await load(); } }} placeholder="搜索会员用户名" className="rounded-lg bg-black/40 border border-white/15 pl-8 pr-3 py-2 text-sm" />
           </div>
           <Button variant="outline" onClick={async () => { await load(); toast.success('会员分析已刷新'); }}><RefreshCcw size={14} className="mr-2" />刷新</Button>
           <Button onClick={exportCsv}><Download size={14} className="mr-2" />导出</Button>
@@ -136,8 +143,9 @@ export default function PlayersAnalysisPage() {
             <div className="flex items-center gap-2 text-xs">
               <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="rounded bg-black/40 border border-white/15 px-2 py-1">
                 <option value="totalBet">总投注</option>
-                <option value="netGgr">净贡献</option>
+                <option value="netContribution">净贡献</option>
                 <option value="creditBalance">信用余额</option>
+                <option value="lastActive">最近活跃</option>
               </select>
               <button onClick={() => setSortDir((x) => x === 'asc' ? 'desc' : 'asc')} className="rounded bg-black/40 border border-white/15 px-2 py-1">{sortDir}</button>
             </div>
@@ -164,9 +172,9 @@ export default function PlayersAnalysisPage() {
                           <td>{r.superAgentName}</td>
                           <td className="text-right">{money(r.totalBet)}</td>
                           <td className={`text-right ${r.totalPnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{money(r.totalPnl)}</td>
-                          <td className="text-right text-[#FFD700]">{money(r.netGgr)}</td>
+                          <td className="text-right text-[#FFD700]">{money(r.netContribution)}</td>
                           <td className="text-right">{money(r.creditBalance)}</td>
-                          <td>{time(r.lastActiveAt)}</td>
+                          <td>{time(r.lastActive)}</td>
                         </tr>
                       );
                     })}
@@ -210,7 +218,7 @@ export default function PlayersAnalysisPage() {
               <div className="rounded bg-white/5 p-2">会员: {detail.player.username}</div>
               <div className="rounded bg-white/5 p-2">所属Agent: {detail.player.agentName}</div>
               <div className="rounded bg-white/5 p-2">信用余额: <span className="text-[#FFD700]">{money(detail.player.creditBalance)}</span></div>
-              <div className="rounded bg-white/5 p-2">最近活跃: {time(detail.player.lastActiveAt)}</div>
+              <div className="rounded bg-white/5 p-2">最近活跃: {detail.betHistory?.[0]?.at ? time(detail.betHistory[0].at) : '-'}</div>
             </div>
             <div>
               <h3 className="text-[#FFD700] mb-2">信用历史</h3>

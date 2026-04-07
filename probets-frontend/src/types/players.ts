@@ -5,14 +5,14 @@ export type PlayerRankingRow = {
   superAgentName: string;
   totalBet: number;
   totalPnl: number;
-  netGgr: number;
+  netContribution: number;
   creditBalance: number;
-  lastActiveAt: string;
+  lastActive: string;
 };
 
 export type PlayerRankingResponse = {
   items: PlayerRankingRow[];
-  meta: { page: number; limit: number; total: number };
+  meta: { page: number; limit: number; total: number; totalPages?: number };
 };
 
 export type CreditDistribution = {
@@ -28,7 +28,13 @@ export type BettingBehavior = {
 };
 
 export type PlayerDetail = {
-  player: PlayerRankingRow;
-  creditHistory: Array<{ id: string; amount: number; type: string; at: string }>;
-  betHistory: Array<{ id: string; game: string; stake: number; result: string; at: string }>;
+  player: {
+    id: string;
+    username: string;
+    agentName: string;
+    superAgentName: string;
+    creditBalance: number;
+  };
+  creditHistory: Array<{ id: string; amount: number; type: string; remark?: string; at: string }>;
+  betHistory: Array<{ id: string; betNo?: string; game: string; stake: number; payout?: number; result: string; at: string }>;
 };
