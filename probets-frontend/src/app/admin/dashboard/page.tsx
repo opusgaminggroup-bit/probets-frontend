@@ -11,10 +11,13 @@ import { KpiCard } from '@/components/dashboard/kpi-card';
 import { getDashboardData } from '@/lib/dashboard-api';
 import { money, num, time } from '@/lib/format';
 import type { DashboardPayload } from '@/types/dashboard';
+import { clearToken } from '@/lib/auth';
+import { useRouter } from 'next/navigation';
 
 const pieColors = ['#FFD700', '#33d17a', '#3b82f6', '#f97316', '#a855f7'];
 
 export default function AdminDashboardPage() {
+  const router = useRouter();
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -80,7 +83,7 @@ export default function AdminDashboardPage() {
                 30s {autoRefresh ? 'ON' : 'OFF'}
               </Button>
               <Button variant="outline" onClick={load}><RefreshCcw size={14} className="mr-2" />刷新</Button>
-              <Button variant="outline"><LogOut size={14} className="mr-2" />退出</Button>
+              <Button variant="outline" onClick={() => { clearToken(); router.replace('/admin/login'); }}><LogOut size={14} className="mr-2" />退出</Button>
             </div>
           </header>
 

@@ -1,4 +1,5 @@
 import type { DashboardPayload } from '@/types/dashboard';
+import api from './api';
 
 const mock: DashboardPayload = {
   kpi: {
@@ -78,10 +79,8 @@ export async function getDashboardData(): Promise<DashboardPayload> {
   if (!base) return mock;
 
   try {
-    const res = await fetch(`${base}/admin/dashboard`, { cache: 'no-store' });
-    if (!res.ok) return mock;
-    const json = await res.json();
-    return json?.data ?? mock;
+    const res = await api.get('/admin/dashboard');
+    return res.data?.data ?? mock;
   } catch {
     return mock;
   }
