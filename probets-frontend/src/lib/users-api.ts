@@ -74,3 +74,15 @@ export async function createUser(payload: any) {
 export async function updateUser(id: string, payload: any) {
   return api.patch(`/admin/users/${id}`, payload);
 }
+
+export async function adjustCredit(payload: {
+  targetUserId: string;
+  action: 'add' | 'subtract';
+  amount: number;
+  remark?: string;
+}) {
+  return api.post('/credit/adjust', {
+    operatorId: 'self',
+    ...payload,
+  });
+}

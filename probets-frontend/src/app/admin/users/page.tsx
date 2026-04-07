@@ -7,10 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Drawer } from '@/components/ui/drawer';
 import { UserCreateModal } from '@/components/users/user-create-modal';
+import { CreditAdjustModal } from '@/components/users/credit-adjust-modal';
 import { clearToken } from '@/lib/auth';
 import { useAppStore } from '@/lib/store';
 import { fetchCurrentUser } from '@/lib/current-user';
-import { createUser, getUserDetail, getUsers, updateUser } from '@/lib/users-api';
+import { adjustCredit, createUser, getUserDetail, getUsers, updateUser } from '@/lib/users-api';
 import type { AdminUser, UserDetail } from '@/types/users';
 import { money, time } from '@/lib/format';
 
@@ -40,6 +41,8 @@ export default function AdminUsersPage() {
   const [selectedId, setSelectedId] = useState<string>('');
   const [detail, setDetail] = useState<UserDetail | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [creditOpen, setCreditOpen] = useState(false);
+  const [creditTarget, setCreditTarget] = useState<{ id: string; username?: string }>({ id: '' });
 
   const scopeParentId = authUser?.role === 'superagent' ? (authUser as any)?.id || undefined : undefined;
 
@@ -156,7 +159,7 @@ export default function AdminUsersPage() {
                         <div className="inline-flex gap-1">
                           <Button size="sm" variant="outline" onClick={() => viewDetail(u.id)}><Eye size={12} /></Button>
                           <Button size="sm" variant="outline" onClick={async () => { await updateUser(u.id, { isActive: !u.isActive }); await load(); }}><Pencil size={12} /></Button>
-                          <Button size="sm" onClick={() => setCreateOpen(true)}>+/-信用</Button>
+                          <Button size="sm" onClick={() => { setCreditTarget({ id: u.id, username: u.username }); setCreditOpen(true); }}>+/-信用</Button>
                         </div>
                       </td>
                     </tr>
@@ -211,7 +214,7 @@ export default function AdminUsersPage() {
               </div>
             </div>
 
-            <Button onClick={() => setCreateOpen(true)}>调整信用</Button>
+            <Button onClick={() => { setCreditTarget({ id: detail.user.id, username: detail.user.username }); setCreditOpen(true); }}>调整信用</Button>
           </div>
         )}
       </Drawer>
@@ -222,6 +225,21 @@ export default function AdminUsersPage() {
         onSubmit={async (payload) => {
           await createUser(payload);
           await load();
+        }}
+      />
+
+      <CreditAdjustModal
+        open={creditOpen}
+        onOpenChange={setCreditOpen}
+        targetUserId={creditTarget.id}
+        targetUsername={creditTarget.username}
+        onSubmit={async (payload) => {
+          await adjustCredit(payload);
+          await load();
+          if (selectedId) {
+            const d = await getUserDetail(selectedId);
+            setDetail(d);
+          }
         }}
       />
     </div>
