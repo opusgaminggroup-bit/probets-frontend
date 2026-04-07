@@ -3,6 +3,7 @@ import { create } from 'zustand';
 type Role = 'admin' | 'superagent' | 'super_master' | 'master' | 'agent' | 'player';
 
 type AuthUser = {
+  id?: string;
   username?: string;
   name?: string;
   role?: Role | string;

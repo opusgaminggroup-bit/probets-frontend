@@ -1,6 +1,7 @@
 export type AdminUser = {
   id: string;
   username: string;
+  parentChainIds?: string[];
   name?: string;
   role: 'admin' | 'superagent' | 'agent' | 'player' | string;
   parentId?: string | null;

@@ -36,6 +36,7 @@ export default function AdminLoginPage() {
       const me = await fetchCurrentUser();
       if (me) {
         setAuthUser({
+          id: String(me.id ?? ''),
           username: me.username,
           name: me.name,
           role: me.role,

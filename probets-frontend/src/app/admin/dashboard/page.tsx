@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Bell, LogOut, PauseCircle, RefreshCcw, ShieldAlert, Wallet } from 'lucide-react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/dialog';
@@ -108,8 +109,8 @@ export default function AdminDashboardPage() {
               <Button variant="outline" onClick={() => setAutoRefresh((v) => !v)}>
                 30s {autoRefresh ? 'ON' : 'OFF'}
               </Button>
-              <Button variant="outline" onClick={load}><RefreshCcw size={14} className="mr-2" />刷新</Button>
-              <Button variant="outline" onClick={() => { clearToken(); router.replace('/admin/login'); }}><LogOut size={14} className="mr-2" />退出</Button>
+              <Button variant="outline" onClick={async () => { await load(); toast.success('Dashboard 已刷新'); }}><RefreshCcw size={14} className="mr-2" />刷新</Button>
+              <Button variant="outline" onClick={() => { clearToken(); toast.success('已退出登录'); router.replace('/admin/login'); }}><LogOut size={14} className="mr-2" />退出</Button>
             </div>
           </header>
 

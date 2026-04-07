@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, RefreshCcw, Eye, Pencil, UserPlus, LogOut } from 'lucide-react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Drawer } from '@/components/ui/drawer';
@@ -70,6 +71,16 @@ export default function AdminUsersPage() {
   useEffect(() => { load(); }, [page, limit, role, status, parentId, sortBy, sortDir]);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / limit)), [total, limit]);
+  const isSuperAgent = String(authUser?.role || '').toLowerCase() === 'superagent';
+  const allowedIds = useMemo(() => {
+    const mine = String((authUser as any)?.id || '');
+    const set = new Set<string>();
+    if (mine) set.add(mine);
+    items.forEach((u) => {
+      if (u.parentId === mine) set.add(String(u.id));
+    });
+    return set;
+  }, [authUser, items]);
 
   const viewDetail = async (id: string) => {
     setSelectedId(id);
@@ -93,11 +104,17 @@ export default function AdminUsersPage() {
               <div className="text-[11px] uppercase text-zinc-400">{String(authUser?.role || 'admin')}</div>
             </div>
           </div>
-          <Button variant="outline" onClick={load}><RefreshCcw size={14} className="mr-2" />刷新</Button>
+          <Button variant="outline" onClick={async () => { await load(); toast.success('用户列表已刷新'); }}><RefreshCcw size={14} className="mr-2" />刷新</Button>
           <Button onClick={() => setCreateOpen(true)}><UserPlus size={14} className="mr-2" />创建用户</Button>
-          <Button variant="outline" onClick={() => { clearToken(); router.replace('/admin/login'); }}><LogOut size={14} className="mr-2" />退出</Button>
+          <Button variant="outline" onClick={() => { clearToken(); toast.success('已退出登录'); router.replace('/admin/login'); }}><LogOut size={14} className="mr-2" />退出</Button>
         </div>
       </header>
+
+      {isSuperAgent ? (
+        <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          您当前以 SuperAgent 身份登录，仅可查看和管理自己的直属下级。
+        </div>
+      ) : null}
 
       <Card className="mb-4 bg-[#121217] border-white/10">
         <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-2">
@@ -146,7 +163,9 @@ export default function AdminUsersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((u) => (
+                  {items.map((u) => {
+                    const canManage = !isSuperAgent || allowedIds.has(String(u.id));
+                    return (
                     <tr key={u.id} className="border-b border-white/5 hover:bg-white/5">
                       <td className="py-2">{u.username}</td>
                       <td>{u.role}</td>
@@ -157,13 +176,29 @@ export default function AdminUsersPage() {
                       <td>{time(u.createdAt)}</td>
                       <td className="text-right">
                         <div className="inline-flex gap-1">
-                          <Button size="sm" variant="outline" onClick={() => viewDetail(u.id)}><Eye size={12} /></Button>
-                          <Button size="sm" variant="outline" onClick={async () => { await updateUser(u.id, { isActive: !u.isActive }); await load(); }}><Pencil size={12} /></Button>
-                          <Button size="sm" onClick={() => { setCreditTarget({ id: u.id, username: u.username }); setCreditOpen(true); }}>+/-信用</Button>
+                          <Button size="sm" variant="outline" onClick={() => {
+                            if (!canManage) return toast.warning('SuperAgent 仅可查看直属下级');
+                            viewDetail(u.id);
+                          }}><Eye size={12} /></Button>
+                          <Button size="sm" variant="outline" onClick={async () => {
+                            if (!canManage) return toast.warning('无权限操作该用户');
+                            try {
+                              await updateUser(u.id, { isActive: !u.isActive });
+                              toast.success(`用户 ${u.username} 状态已更新`);
+                              await load();
+                            } catch (e: any) {
+                              toast.error(e?.response?.data?.message || '状态更新失败');
+                            }
+                          }} disabled={!canManage}><Pencil size={12} /></Button>
+                          <Button size="sm" onClick={() => {
+                            if (!canManage) return toast.warning('无权限调整该用户信用');
+                            setCreditTarget({ id: u.id, username: u.username });
+                            setCreditOpen(true);
+                          }} disabled={!canManage}>+/-信用</Button>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  );})}
                 </tbody>
               </table>
             </div>
@@ -223,8 +258,14 @@ export default function AdminUsersPage() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         onSubmit={async (payload) => {
-          await createUser(payload);
-          await load();
+          try {
+            await createUser(payload);
+            toast.success(`用户 ${payload.username} 创建成功`);
+            await load();
+          } catch (e: any) {
+            toast.error(e?.response?.data?.message || '创建用户失败');
+            throw e;
+          }
         }}
       />
 
@@ -234,11 +275,21 @@ export default function AdminUsersPage() {
         targetUserId={creditTarget.id}
         targetUsername={creditTarget.username}
         onSubmit={async (payload) => {
-          await adjustCredit(payload);
-          await load();
-          if (selectedId) {
-            const d = await getUserDetail(selectedId);
-            setDetail(d);
+          if (isSuperAgent && !allowedIds.has(String(payload.targetUserId))) {
+            toast.warning('该用户不在您的直属管理范围，无法调整信用');
+            throw new Error('out_of_scope');
+          }
+          try {
+            await adjustCredit(payload);
+            toast.success(`已成功为 ${creditTarget.username || payload.targetUserId} ${payload.action === 'add' ? '增加' : '扣减'} ${payload.amount} credit`);
+            await load();
+            if (selectedId) {
+              const d = await getUserDetail(selectedId);
+              setDetail(d);
+            }
+          } catch (e: any) {
+            toast.error(e?.response?.data?.message || '信用调整失败');
+            throw e;
           }
         }}
       />
